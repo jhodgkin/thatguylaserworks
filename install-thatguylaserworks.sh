@@ -83,18 +83,32 @@ function get_next_ctid() {
 }
 
 function download_template() {
-    local template="alpine-3.19-default_20240207_amd64.tar.xz"
-    local template_path="/var/lib/vz/template/cache/${template}"
+    msg "Updating template list..."
+    pveam update
 
-    if [[ ! -f "$template_path" ]]; then
-        msg "Downloading Alpine Linux template..."
-        pveam update
-        pveam download "$TEMPLATE_STORAGE" "$template" || error "Failed to download template"
-    else
-        msg "Alpine Linux template already exists"
+    # Check if we already have an Alpine template
+    local existing=$(pveam list "$TEMPLATE_STORAGE" 2>/dev/null | grep -i "alpine" | head -1 | awk '{print $1}')
+
+    if [[ -n "$existing" ]]; then
+        msg "Using existing Alpine template: $existing"
+        echo "$existing"
+        return
     fi
 
-    echo "${TEMPLATE_STORAGE}:vztmpl/${template}"
+    # Find available Alpine template to download
+    msg "Finding available Alpine template..."
+    local available=$(pveam available | grep -i "alpine" | head -1 | awk '{print $2}')
+
+    if [[ -z "$available" ]]; then
+        error "No Alpine template found. Available templates:"
+        pveam available
+        exit 1
+    fi
+
+    msg "Downloading template: $available"
+    pveam download "$TEMPLATE_STORAGE" "$available" || error "Failed to download template"
+
+    echo "${TEMPLATE_STORAGE}:vztmpl/${available}"
 }
 
 function create_container() {
