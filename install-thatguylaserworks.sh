@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # That Guy Laser Works - Proxmox LXC Helper Script
-# Creates a lightweight Alpine LXC container with nginx to serve the static website
+# Creates a lightweight LXC container with nginx to serve the static website
 
 set -euo pipefail
 
@@ -13,16 +13,16 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Default configuration
-CTID="${CTID:-}"
-HOSTNAME="${HOSTNAME:-thatguylaserworks}"
-MEMORY="${MEMORY:-256}"
-DISK="${DISK:-1}"
-CORES="${CORES:-1}"
-STORAGE="${STORAGE:-local-lvm}"
-TEMPLATE_STORAGE="${TEMPLATE_STORAGE:-local}"
-BRIDGE="${BRIDGE:-vmbr0}"
-IP="${IP:-dhcp}"
-GATEWAY="${GATEWAY:-}"
+CTID=""
+TEMPLATE=""
+HOSTNAME_CT="thatguylaserworks"
+MEMORY="256"
+DISK="1"
+CORES="1"
+STORAGE="local-lvm"
+BRIDGE="vmbr0"
+IP="dhcp"
+GATEWAY=""
 
 # GitHub repository
 REPO_URL="https://github.com/jhodgkin/thatlaserworksguy.git"
@@ -85,65 +85,46 @@ function get_next_ctid() {
 function select_template() {
     echo ""
     msg "Scanning for available templates..."
+    echo ""
 
-    # Get all templates from all storages
+    # Get all templates from all storages into an array
     local templates=()
-    local i=1
 
-    while IFS= read -r line; do
-        [[ -z "$line" ]] && continue
-        templates+=("$line")
-        echo "  $i) $line"
-        ((i++))
-    done < <(pvesm status --content vztmpl | tail -n +2 | awk '{print $1}' | while read storage; do
-        pveam list "$storage" 2>/dev/null | tail -n +2 | awk '{print $1}'
-    done)
+    # Find all storages that can hold templates
+    while IFS= read -r storage; do
+        [[ -z "$storage" ]] && continue
+        while IFS= read -r tmpl; do
+            [[ -z "$tmpl" ]] && continue
+            templates+=("$tmpl")
+        done < <(pveam list "$storage" 2>/dev/null | tail -n +2 | awk '{print $1}')
+    done < <(pvesm status 2>/dev/null | tail -n +2 | awk '{print $1}')
 
     if [[ ${#templates[@]} -eq 0 ]]; then
-        warn "No templates found locally."
-        echo ""
-        echo "Would you like to download one? Here are available templates:"
-        pveam update >/dev/null 2>&1
-
-        local available=()
-        i=1
-        while IFS= read -r line; do
-            [[ -z "$line" ]] && continue
-            available+=("$line")
-            echo "  $i) $line"
-            ((i++))
-        done < <(pveam available | awk '{print $2}' | head -20)
-
-        echo ""
-        read -p "Enter number to download (or 'q' to quit): " choice
-        [[ "$choice" == "q" ]] && exit 0
-
-        local selected="${available[$((choice-1))]}"
-        if [[ -z "$selected" ]]; then
-            error "Invalid selection"
-        fi
-
-        msg "Downloading $selected..."
-        pveam download "$TEMPLATE_STORAGE" "$selected" || error "Failed to download"
-        echo "${TEMPLATE_STORAGE}:vztmpl/${selected}"
-        return
+        error "No templates found. Please download a template first using: pveam download local <template-name>"
     fi
+
+    echo "Available templates:"
+    echo ""
+    local i=1
+    for tmpl in "${templates[@]}"; do
+        echo "  $i) $tmpl"
+        ((i++))
+    done
 
     echo ""
-    read -p "Select template [1]: " choice
+    read -p "Select template number [1]: " choice
     choice="${choice:-1}"
 
-    local selected="${templates[$((choice-1))]}"
-    if [[ -z "$selected" ]]; then
-        error "Invalid selection"
+    # Validate choice
+    if ! [[ "$choice" =~ ^[0-9]+$ ]] || [[ "$choice" -lt 1 ]] || [[ "$choice" -gt ${#templates[@]} ]]; then
+        error "Invalid selection: $choice"
     fi
 
-    echo "$selected"
+    TEMPLATE="${templates[$((choice-1))]}"
+    msg "Selected template: $TEMPLATE"
 }
 
 function create_container() {
-    local template=$1
-
     msg "Creating LXC container (CTID: $CTID)..."
 
     local net_config="name=eth0,bridge=${BRIDGE}"
@@ -154,8 +135,8 @@ function create_container() {
         net_config+=",ip=dhcp"
     fi
 
-    pct create "$CTID" "$template" \
-        --hostname "$HOSTNAME" \
+    pct create "$CTID" "$TEMPLATE" \
+        --hostname "$HOSTNAME_CT" \
         --memory "$MEMORY" \
         --cores "$CORES" \
         --rootfs "${STORAGE}:${DISK}" \
@@ -185,52 +166,84 @@ function setup_container() {
         sleep 2
     done
 
+    # Detect OS type
+    local os_type=""
+    if pct exec "$CTID" -- test -f /etc/alpine-release 2>/dev/null; then
+        os_type="alpine"
+    elif pct exec "$CTID" -- test -f /etc/debian_version 2>/dev/null; then
+        os_type="debian"
+    else
+        os_type="debian"  # Default to debian-style commands
+    fi
+
+    msg "Detected OS type: $os_type"
     msg "Installing packages..."
-    pct exec "$CTID" -- apk update
-    pct exec "$CTID" -- apk add --no-cache nginx git
+
+    if [[ "$os_type" == "alpine" ]]; then
+        pct exec "$CTID" -- apk update
+        pct exec "$CTID" -- apk add --no-cache nginx git
+    else
+        pct exec "$CTID" -- apt-get update
+        pct exec "$CTID" -- apt-get install -y nginx git
+    fi
 
     msg "Cloning website from GitHub..."
     pct exec "$CTID" -- rm -rf /var/www/html
     pct exec "$CTID" -- git clone "$REPO_URL" /var/www/html
 
     msg "Configuring nginx..."
-    pct exec "$CTID" -- sh -c 'cat > /etc/nginx/http.d/default.conf << "NGINX"
+
+    if [[ "$os_type" == "alpine" ]]; then
+        pct exec "$CTID" -- sh -c 'cat > /etc/nginx/http.d/default.conf << "NGINX"
 server {
     listen 80 default_server;
     listen [::]:80 default_server;
-
     root /var/www/html;
     index index.html;
-
     server_name _;
-
     location / {
         try_files $uri $uri/ =404;
     }
-
-    # Cache static assets
     location ~* \.(jpg|jpeg|png|gif|ico|css|js|webp)$ {
         expires 7d;
         add_header Cache-Control "public, immutable";
     }
-
-    # Gzip compression
     gzip on;
     gzip_types text/plain text/css application/javascript text/html;
     gzip_min_length 1000;
 }
 NGINX'
-
-    msg "Enabling and starting nginx..."
-    pct exec "$CTID" -- rc-update add nginx default
-    pct exec "$CTID" -- rc-service nginx start
+        pct exec "$CTID" -- rc-update add nginx default
+        pct exec "$CTID" -- rc-service nginx start
+    else
+        pct exec "$CTID" -- sh -c 'cat > /etc/nginx/sites-available/default << "NGINX"
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    root /var/www/html;
+    index index.html;
+    server_name _;
+    location / {
+        try_files $uri $uri/ =404;
+    }
+    location ~* \.(jpg|jpeg|png|gif|ico|css|js|webp)$ {
+        expires 7d;
+        add_header Cache-Control "public, immutable";
+    }
+    gzip on;
+    gzip_types text/plain text/css application/javascript text/html;
+    gzip_min_length 1000;
+}
+NGINX'
+        pct exec "$CTID" -- systemctl enable nginx
+        pct exec "$CTID" -- systemctl restart nginx
+    fi
 
     msg "Creating update script..."
     pct exec "$CTID" -- sh -c 'cat > /usr/local/bin/update-site << "UPDATE"
 #!/bin/sh
 cd /var/www/html
 git pull origin main
-rc-service nginx reload
 echo "Site updated successfully"
 UPDATE'
     pct exec "$CTID" -- chmod +x /usr/local/bin/update-site
@@ -238,11 +251,8 @@ UPDATE'
 
 function show_summary() {
     local ip_addr
-    if [[ "$IP" == "dhcp" ]]; then
-        ip_addr=$(pct exec "$CTID" -- ip -4 addr show eth0 | grep -oP '(?<=inet\s)\d+(\.\d+){3}')
-    else
-        ip_addr="${IP%/*}"
-    fi
+    sleep 2
+    ip_addr=$(pct exec "$CTID" -- ip -4 addr show eth0 2>/dev/null | grep -oP '(?<=inet\s)\d+(\.\d+){3}' || echo "unknown")
 
     echo ""
     echo -e "${GREEN}========================================${NC}"
@@ -250,10 +260,10 @@ function show_summary() {
     echo -e "${GREEN}========================================${NC}"
     echo ""
     echo -e "  Container ID:  ${BLUE}$CTID${NC}"
-    echo -e "  Hostname:      ${BLUE}$HOSTNAME${NC}"
-    echo -e "  IP Address:    ${BLUE}${ip_addr:-unknown}${NC}"
+    echo -e "  Hostname:      ${BLUE}$HOSTNAME_CT${NC}"
+    echo -e "  IP Address:    ${BLUE}${ip_addr}${NC}"
     echo ""
-    echo -e "  Website URL:   ${BLUE}http://${ip_addr:-<ip-address>}/${NC}"
+    echo -e "  Website URL:   ${BLUE}http://${ip_addr}/${NC}"
     echo ""
     echo -e "  ${YELLOW}To update the site:${NC}"
     echo -e "  pct exec $CTID -- update-site"
@@ -275,8 +285,11 @@ function interactive_setup() {
     CTID="${input_ctid:-$default_ctid}"
 
     # Get hostname
-    read -p "Hostname [$HOSTNAME]: " input_hostname
-    HOSTNAME="${input_hostname:-$HOSTNAME}"
+    read -p "Hostname [$HOSTNAME_CT]: " input_hostname
+    HOSTNAME_CT="${input_hostname:-$HOSTNAME_CT}"
+
+    # Select template
+    select_template
 
     # Get IP configuration
     echo ""
@@ -292,15 +305,16 @@ function interactive_setup() {
 
     # Get storage
     echo ""
-    echo "Available storage:"
-    pvesm status | grep -E "^[a-zA-Z]" | awk '{print "  - " $1}'
+    echo "Available storage for container disk:"
+    pvesm status 2>/dev/null | tail -n +2 | awk '{print "  - " $1}'
     read -p "Storage [$STORAGE]: " input_storage
     STORAGE="${input_storage:-$STORAGE}"
 
     echo ""
     echo -e "${YELLOW}Configuration Summary:${NC}"
     echo "  CTID:     $CTID"
-    echo "  Hostname: $HOSTNAME"
+    echo "  Hostname: $HOSTNAME_CT"
+    echo "  Template: $TEMPLATE"
     echo "  Memory:   ${MEMORY}MB"
     echo "  Disk:     ${DISK}GB"
     echo "  Cores:    $CORES"
@@ -318,14 +332,8 @@ function interactive_setup() {
 function main() {
     check_root
     check_proxmox
-
-    # Interactive mode if no CTID provided
-    if [[ -z "$CTID" ]]; then
-        interactive_setup
-    fi
-
-    local template=$(select_template)
-    create_container "$template"
+    interactive_setup
+    create_container
     setup_container
     show_summary
 }
