@@ -82,33 +82,63 @@ function get_next_ctid() {
     echo $id
 }
 
-function download_template() {
-    msg "Updating template list..."
-    pveam update
+function select_template() {
+    echo ""
+    msg "Scanning for available templates..."
 
-    # Check if we already have an Alpine template
-    local existing=$(pveam list "$TEMPLATE_STORAGE" 2>/dev/null | grep -i "alpine" | head -1 | awk '{print $1}')
+    # Get all templates from all storages
+    local templates=()
+    local i=1
 
-    if [[ -n "$existing" ]]; then
-        msg "Using existing Alpine template: $existing"
-        echo "$existing"
+    while IFS= read -r line; do
+        [[ -z "$line" ]] && continue
+        templates+=("$line")
+        echo "  $i) $line"
+        ((i++))
+    done < <(pvesm status --content vztmpl | tail -n +2 | awk '{print $1}' | while read storage; do
+        pveam list "$storage" 2>/dev/null | tail -n +2 | awk '{print $1}'
+    done)
+
+    if [[ ${#templates[@]} -eq 0 ]]; then
+        warn "No templates found locally."
+        echo ""
+        echo "Would you like to download one? Here are available templates:"
+        pveam update >/dev/null 2>&1
+
+        local available=()
+        i=1
+        while IFS= read -r line; do
+            [[ -z "$line" ]] && continue
+            available+=("$line")
+            echo "  $i) $line"
+            ((i++))
+        done < <(pveam available | awk '{print $2}' | head -20)
+
+        echo ""
+        read -p "Enter number to download (or 'q' to quit): " choice
+        [[ "$choice" == "q" ]] && exit 0
+
+        local selected="${available[$((choice-1))]}"
+        if [[ -z "$selected" ]]; then
+            error "Invalid selection"
+        fi
+
+        msg "Downloading $selected..."
+        pveam download "$TEMPLATE_STORAGE" "$selected" || error "Failed to download"
+        echo "${TEMPLATE_STORAGE}:vztmpl/${selected}"
         return
     fi
 
-    # Find available Alpine template to download
-    msg "Finding available Alpine template..."
-    local available=$(pveam available | grep -i "alpine" | head -1 | awk '{print $2}')
+    echo ""
+    read -p "Select template [1]: " choice
+    choice="${choice:-1}"
 
-    if [[ -z "$available" ]]; then
-        error "No Alpine template found. Available templates:"
-        pveam available
-        exit 1
+    local selected="${templates[$((choice-1))]}"
+    if [[ -z "$selected" ]]; then
+        error "Invalid selection"
     fi
 
-    msg "Downloading template: $available"
-    pveam download "$TEMPLATE_STORAGE" "$available" || error "Failed to download template"
-
-    echo "${TEMPLATE_STORAGE}:vztmpl/${available}"
+    echo "$selected"
 }
 
 function create_container() {
@@ -294,7 +324,7 @@ function main() {
         interactive_setup
     fi
 
-    local template=$(download_template)
+    local template=$(select_template)
     create_container "$template"
     setup_container
     show_summary
