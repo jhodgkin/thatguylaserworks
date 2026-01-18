@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>That Guy Laser Works - Custom Laser Engraving</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #2a2118;
+            color: #f5ebe0;
+            line-height: 1.6;
+        }
+
+        .top-bar {
+            background: #1f1812;
+            padding: 12px 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 30px;
+            flex-wrap: wrap;
+            border-bottom: 1px solid #3d2e1f;
+        }
+
+        .top-bar-text {
+            color: #c4a77d;
+            font-size: 0.95rem;
+        }
+
+        .top-bar-links {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .top-bar-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: #d4a574;
+            text-decoration: none;
+            font-size: 0.95rem;
+            transition: color 0.3s ease;
+        }
+
+        .top-bar-link:hover {
+            color: #e6b885;
+        }
+
+        .top-bar-link svg {
+            width: 18px;
+            height: 18px;
+            fill: currentColor;
+        }
+
+        header {
+            text-align: center;
+            padding: 40px 20px;
+            background: linear-gradient(135deg, #3d2e1f 0%, #2a2118 100%);
+            border-bottom: 3px solid #d4a574;
+        }
+
+        h1 {
+            font-size: 2.8rem;
+            font-weight: 700;
+            letter-spacing: 2px;
+            margin-bottom: 10px;
+            color: #d4a574;
+        }
+
+        .tagline {
+            font-size: 1.2rem;
+            color: #c4a77d;
+            font-weight: 300;
+        }
+
+        /* Carousel Styles */
+        .carousel-section {
+            background: #1f1812;
+            padding: 0;
+        }
+
+        .carousel {
+            position: relative;
+            width: 100%;
+            max-width: 1000px;
+            margin: 0 auto;
+            height: 500px;
+            overflow: hidden;
+        }
+
+        .carousel-inner {
+            display: flex;
+            height: 100%;
+            transition: transform 0.5s ease-in-out;
+        }
+
+        .carousel-slide {
+            min-width: 100%;
+            height: 100%;
+        }
+
+        .carousel-slide img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            background: #1f1812;
+        }
+
+        .carousel-btn {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(212, 165, 116, 0.8);
+            color: #2a2118;
+            border: none;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: background 0.3s ease;
+            z-index: 10;
+        }
+
+        .carousel-btn:hover {
+            background: #d4a574;
+        }
+
+        .carousel-btn.prev {
+            left: 20px;
+        }
+
+        .carousel-btn.next {
+            right: 20px;
+        }
+
+        .carousel-dots {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+        }
+
+        .carousel-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: rgba(212, 165, 116, 0.4);
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        .carousel-dot.active {
+            background: #d4a574;
+        }
+
+        main {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        h2 {
+            text-align: center;
+            font-size: 1.8rem;
+            margin-bottom: 30px;
+            color: #d4a574;
+        }
+
+        .gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+            margin-bottom: 60px;
+        }
+
+        .gallery-item {
+            position: relative;
+            overflow: hidden;
+            border-radius: 8px;
+            aspect-ratio: 1;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+            border: 2px solid #3d2e1f;
+        }
+
+        .gallery-item:hover {
+            transform: scale(1.02);
+            border-color: #d4a574;
+        }
+
+        .gallery-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.3s ease;
+        }
+
+        .gallery-item:hover img {
+            transform: scale(1.1);
+        }
+
+        .contact {
+            text-align: center;
+            padding: 60px 20px;
+            background: linear-gradient(135deg, #3d2e1f 0%, #2a2118 100%);
+            border-radius: 12px;
+            border: 1px solid #4a3828;
+        }
+
+        .contact p {
+            font-size: 1.1rem;
+            margin-bottom: 30px;
+            color: #c4a77d;
+        }
+
+        .contact-links {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            flex-wrap: wrap;
+        }
+
+        .contact-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            padding: 15px 30px;
+            background: linear-gradient(135deg, #d4a574 0%, #b8956a 100%);
+            color: #2a2118;
+            text-decoration: none;
+            border-radius: 50px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .contact-link:hover {
+            background: linear-gradient(135deg, #e6b885 0%, #d4a574 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(212, 165, 116, 0.3);
+        }
+
+        .contact-link svg {
+            width: 24px;
+            height: 24px;
+            fill: currentColor;
+        }
+
+        footer {
+            text-align: center;
+            padding: 30px;
+            color: #7a6855;
+            font-size: 0.9rem;
+        }
+
+        /* Lightbox */
+        .lightbox {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(26, 18, 12, 0.98);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .lightbox.active {
+            display: flex;
+        }
+
+        .lightbox img {
+            max-width: 90%;
+            max-height: 90%;
+            object-fit: contain;
+            border-radius: 8px;
+        }
+
+        .lightbox-close {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            font-size: 3rem;
+            color: #f5ebe0;
+            cursor: pointer;
+            transition: color 0.3s ease;
+        }
+
+        .lightbox-close:hover {
+            color: #d4a574;
+        }
+
+        @media (max-width: 600px) {
+            h1 {
+                font-size: 2rem;
+            }
+
+            .carousel {
+                height: 300px;
+            }
+
+            .carousel-btn {
+                width: 40px;
+                height: 40px;
+                font-size: 1.2rem;
+            }
+
+            .gallery {
+                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+                gap: 10px;
+            }
+
+            .contact-links {
+                flex-direction: column;
+                align-items: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="top-bar">
+        <span class="top-bar-text">Interested in custom laser engraving? Reach out today!</span>
+        <div class="top-bar-links">
+            <a href="https://www.facebook.com/profile.php?id=61557817044264" target="_blank" rel="noopener" class="top-bar-link">
+                <svg viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                Facebook
+            </a>
+            <a href="mailto:thatguylaserworks@gmail.com" class="top-bar-link">
+                <svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
+                Email
+            </a>
+        </div>
+    </div>
+
+    <header>
+        <h1>That Guy Laser Works</h1>
+        <p class="tagline">Custom Laser Engraving</p>
+    </header>
+
+    <section class="carousel-section">
+        <div class="carousel" id="carousel">
+            <div class="carousel-inner" id="carouselInner">
+                <div class="carousel-slide"><img src="0b8034ce-dd85-4b34-864f-91309dee7ad2.jpg" alt="Featured work"></div>
+                <div class="carousel-slide"><img src="14189984-bba9-4dcf-bc84-388a09c06006.jpg" alt="Featured work"></div>
+                <div class="carousel-slide"><img src="35f52334-ef40-4433-bbed-f4974ae1fe5a.jpg" alt="Featured work"></div>
+                <div class="carousel-slide"><img src="3b1c901a-45b1-46d2-a096-595fe451b1bd.jpg" alt="Featured work"></div>
+                <div class="carousel-slide"><img src="40cfbd30-7cf5-4680-9f15-981f2117fd59.jpg" alt="Featured work"></div>
+                <div class="carousel-slide"><img src="57382b64-7898-48cb-9c70-4066f445564d.jpg" alt="Featured work"></div>
+            </div>
+            <button class="carousel-btn prev" id="prevBtn">&#10094;</button>
+            <button class="carousel-btn next" id="nextBtn">&#10095;</button>
+            <div class="carousel-dots" id="carouselDots"></div>
+        </div>
+    </section>
+
+    <main>
+        <section>
+            <h2>Our Work</h2>
+            <div class="gallery">
+                <div class="gallery-item"><img src="0b8034ce-dd85-4b34-864f-91309dee7ad2.jpg" alt="Laser engraved item" loading="lazy"></div>
+                <div class="gallery-item"><img src="14189984-bba9-4dcf-bc84-388a09c06006.jpg" alt="Laser engraved item" loading="lazy"></div>
+                <div class="gallery-item"><img src="35f52334-ef40-4433-bbed-f4974ae1fe5a.jpg" alt="Laser engraved item" loading="lazy"></div>
+                <div class="gallery-item"><img src="3b1c901a-45b1-46d2-a096-595fe451b1bd.jpg" alt="Laser engraved item" loading="lazy"></div>
+                <div class="gallery-item"><img src="40cfbd30-7cf5-4680-9f15-981f2117fd59.jpg" alt="Laser engraved item" loading="lazy"></div>
+                <div class="gallery-item"><img src="57382b64-7898-48cb-9c70-4066f445564d.jpg" alt="Laser engraved item" loading="lazy"></div>
+                <div class="gallery-item"><img src="66ba1ce1-daee-4fb9-b4a4-06a98a8f37d7.jpg" alt="Laser engraved item" loading="lazy"></div>
+                <div class="gallery-item"><img src="6e7ceac9-0152-4540-803e-64dde451feb7.jpg" alt="Laser engraved item" loading="lazy"></div>
+                <div class="gallery-item"><img src="7154c1c2-0a01-48b1-8b8b-2dc68365d143.jpg" alt="Laser engraved item" loading="lazy"></div>
+                <div class="gallery-item"><img src="78326771-6a09-4f54-a935-573ee6f11ed5.jpg" alt="Laser engraved item" loading="lazy"></div>
+                <div class="gallery-item"><img src="7a4d4df5-0f93-41cc-b6b6-42cd3d2f6f60.jpg" alt="Laser engraved item" loading="lazy"></div>
+                <div class="gallery-item"><img src="96ca47a4-a134-4ec0-8fe4-f9699f7427f0.jpg" alt="Laser engraved item" loading="lazy"></div>
+                <div class="gallery-item"><img src="9bd804f5-6201-4a93-bbd9-8ddefd162656.jpg" alt="Laser engraved item" loading="lazy"></div>
+                <div class="gallery-item"><img src="a5938237-1f09-42e4-9ede-62c9990625ad.jpg" alt="Laser engraved item" loading="lazy"></div>
+                <div class="gallery-item"><img src="a6faa302-7e5c-4599-bd9d-d651bbb01106.jpg" alt="Laser engraved item" loading="lazy"></div>
+                <div class="gallery-item"><img src="a764a79e-7995-4035-80a5-89d00b39c842.jpg" alt="Laser engraved item" loading="lazy"></div>
+                <div class="gallery-item"><img src="aaadd74a-75a4-425d-9a45-e2a7926bf07f.jpg" alt="Laser engraved item" loading="lazy"></div>
+                <div class="gallery-item"><img src="b327e0d3-9a72-442d-8755-9ea99cbb08a5.jpg" alt="Laser engraved item" loading="lazy"></div>
+                <div class="gallery-item"><img src="be455ce9-58bf-461b-8bb0-030333230ce5.jpg" alt="Laser engraved item" loading="lazy"></div>
+                <div class="gallery-item"><img src="be67363a-6dab-4377-890f-18468905c1f8.jpg" alt="Laser engraved item" loading="lazy"></div>
+                <div class="gallery-item"><img src="cbcd4a8a-355d-4716-ad0c-34b7f362f4dc.jpg" alt="Laser engraved item" loading="lazy"></div>
+                <div class="gallery-item"><img src="cc06d63f-21d2-455a-9f00-d2e2d6765794.jpg" alt="Laser engraved item" loading="lazy"></div>
+                <div class="gallery-item"><img src="d20f3a3d-0c50-408b-816f-3174f68317ba.jpg" alt="Laser engraved item" loading="lazy"></div>
+                <div class="gallery-item"><img src="d34552f6-e703-400c-b92e-64d0781d311a.jpg" alt="Laser engraved item" loading="lazy"></div>
+            </div>
+        </section>
+
+        <section class="contact">
+            <h2>Get In Touch</h2>
+            <p>Interested in custom laser engraving? Reach out for a quote!</p>
+            <div class="contact-links">
+                <a href="https://www.facebook.com/profile.php?id=61557817044264" target="_blank" rel="noopener" class="contact-link">
+                    <svg viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                    Facebook
+                </a>
+                <a href="mailto:thatguylaserworks@gmail.com" class="contact-link">
+                    <svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
+                    Email
+                </a>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2025 That Guy Laser Works. All rights reserved.</p>
+    </footer>
+
+    <div class="lightbox" id="lightbox">
+        <span class="lightbox-close">&times;</span>
+        <img src="" alt="Enlarged view">
+    </div>
+
+    <script>
+        // Carousel functionality
+        const carouselInner = document.getElementById('carouselInner');
+        const slides = document.querySelectorAll('.carousel-slide');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const dotsContainer = document.getElementById('carouselDots');
+
+        let currentSlide = 0;
+        const totalSlides = slides.length;
+        let autoPlayInterval;
+
+        // Create dots
+        slides.forEach((_, index) => {
+            const dot = document.createElement('div');
+            dot.classList.add('carousel-dot');
+            if (index === 0) dot.classList.add('active');
+            dot.addEventListener('click', () => goToSlide(index));
+            dotsContainer.appendChild(dot);
+        });
+
+        const dots = document.querySelectorAll('.carousel-dot');
+
+        function updateCarousel() {
+            carouselInner.style.transform = `translateX(-${currentSlide * 100}%)`;
+            dots.forEach((dot, index) => {
+                dot.classList.toggle('active', index === currentSlide);
+            });
+        }
+
+        function goToSlide(index) {
+            currentSlide = index;
+            updateCarousel();
+            resetAutoPlay();
+        }
+
+        function nextSlide() {
+            currentSlide = (currentSlide + 1) % totalSlides;
+            updateCarousel();
+        }
+
+        function prevSlide() {
+            currentSlide = (currentSlide - 1 + totalSlides) % totalSlides;
+            updateCarousel();
+        }
+
+        function resetAutoPlay() {
+            clearInterval(autoPlayInterval);
+            autoPlayInterval = setInterval(nextSlide, 4000);
+        }
+
+        prevBtn.addEventListener('click', () => {
+            prevSlide();
+            resetAutoPlay();
+        });
+
+        nextBtn.addEventListener('click', () => {
+            nextSlide();
+            resetAutoPlay();
+        });
+
+        // Start auto-play
+        autoPlayInterval = setInterval(nextSlide, 4000);
+
+        // Pause on hover
+        const carousel = document.getElementById('carousel');
+        carousel.addEventListener('mouseenter', () => clearInterval(autoPlayInterval));
+        carousel.addEventListener('mouseleave', () => {
+            autoPlayInterval = setInterval(nextSlide, 4000);
+        });
+
+        // Gallery lightbox
+        const galleryItems = document.querySelectorAll('.gallery-item img');
+        const lightbox = document.getElementById('lightbox');
+        const lightboxImg = lightbox.querySelector('img');
+        const lightboxClose = lightbox.querySelector('.lightbox-close');
+
+        galleryItems.forEach(img => {
+            img.addEventListener('click', () => {
+                lightboxImg.src = img.src;
+                lightbox.classList.add('active');
+            });
+        });
+
+        lightboxClose.addEventListener('click', () => {
+            lightbox.classList.remove('active');
+        });
+
+        lightbox.addEventListener('click', (e) => {
+            if (e.target === lightbox) {
+                lightbox.classList.remove('active');
+            }
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                lightbox.classList.remove('active');
+            }
+        });
+    </script>
+</body>
+</html>
